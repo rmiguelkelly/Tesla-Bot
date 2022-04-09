@@ -1,12 +1,14 @@
-
 from api import OnlineProductRetriever
-
 from dbcontext import ProductDatabase
+from notification import NotificationSystem
 from product import Product
 
-import smtplib
+#  Load the .env for testing
+from dotenv import load_dotenv
+load_dotenv()
 
-if (__name__ == '__main__'):
+#  Create and return the online product retriever
+def create_product_retriever():
 
     retriever = OnlineProductRetriever()
 
@@ -18,12 +20,39 @@ if (__name__ == '__main__'):
         '/category/lifestyle'
     ])
 
+    return retriever
+
+def notify_admin_new_products(products:set[Product]):
+
+    message = 'New Tesla Products Found\n\n'
+
+    for product in products:
+        product_str = '{} - {}\n{}'.format(product.name, product.price, product.link)
+        message += product_str
+        message += '\n'
+        message += '-------------------------'
+        message += '\n'
+
+    message += 'Thats All Folks!'
+
+    notify = NotificationSystem()
+    notify.post_admin_email('{} New Products Found'.format(len(products)), message)
+    
+
+if (__name__ == '__main__'):
+
+    #  Initiate and retrieve all products on the website
+    retriever = create_product_retriever()
     website_products = retriever.retrieve_all()
     print('Found {} products online'.format(len(website_products)))
 
+    #  If no products were found, an error may have occured
     if len(website_products) == 0:
+        NotificationSystem().post_admin_email('Error', 'An error occured, thake this L')
         print('No products found, maybe an error happened?')
+        pass
     
+    #  The cached products from the initial seeding + updates
     db_context = ProductDatabase()
     
     #  No products, seed the database
@@ -43,8 +72,15 @@ if (__name__ == '__main__'):
         if product not in db_products:
             new_products.add(product)
 
-    #  Handle the notification here
-    print(len(new_products))
+    print("----- New Products -----")
+    for new_product in new_products:
+        print(new_product.name)
 
-    #  Add the new products to the database
-    db_context.update_database(new_products)
+    #  For any new products, notify the admin plus subscribers
+    if len(new_products) > 0:
+
+        #  Perform the notifications
+        notify_admin_new_products(new_products)
+
+        #  Add the new products to the database
+        db_context.update_database(new_products)
