@@ -1,7 +1,6 @@
 
-import smtplib, ssl
+import smtplib
 import os
-from dotenv import load_dotenv
 
 from product import Product
 
