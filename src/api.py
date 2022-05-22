@@ -19,7 +19,11 @@ class OnlineProductRetriever:
 
         items = set[Product]()
 
-        response = requests.get(url)
+        # Add some headers to bypass a potential 403 errors
+        http_headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        }
+        response = requests.get(url, headers=http_headers)
 
         if response.status_code != 200:
             print('Server Error: Unable to retrieve products from {} (error {})'.format(url, response.status_code))

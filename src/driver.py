@@ -1,3 +1,4 @@
+from time import sleep
 from api import OnlineProductRetriever
 from dbcontext import ProductDatabase
 from notification import NotificationSystem
@@ -6,6 +7,9 @@ from product import Product
 #  Load the .env for testing
 from dotenv import load_dotenv
 load_dotenv()
+
+#  Authenticate Twitter API
+NotificationSystem.authenticate_twitter_api()
 
 #  Create and return the online product retriever
 def create_product_retriever():
@@ -58,12 +62,42 @@ def notify_admin_new_products(new_products:set[Product], changed_products: set[(
     message += "\n"
     message += 'Thats All Folks!'
 
-    # notify = NotificationSystem()
-    # notify.post_admin_email('{} New Products Found and {} Products Changed'.format(len(new_products), len(changed_products)), message)
+    notify = NotificationSystem()
+    notify.post_admin_email('{} New Products Found and {} Products Changed'.format(len(new_products), len(changed_products)), message)
     
+    # Log this instead
     print(message)
 
-if (__name__ == '__main__'):
+# Send the results to twitter
+# This should be done syncronously with a small delay between each tweet
+def tweet_results(new_products:set[Product], changed_products: set[((Product, Product))]):
+
+    # Delay each tweet by some time in seconds
+    tweet_delay = 2.0
+
+    notification_handle = NotificationSystem()
+
+    # Some shared footer for the tweets
+    tweet_footer = 'Brought to you by @tesla_shop_bot'
+
+    # Post the new products first
+    for product in new_products:
+        tweet = 'New product in the shop at #tesla\nGet it for {}\n{}\n{}\n{}'.format(product.name, product.price, product.link, tweet_footer)
+        notification_handle.post_twitter(tweet)
+        sleep(tweet_delay)
+    
+    # Post the changed products
+    for (old, new) in changed_products:
+
+        # For sanity, make sure the prices are actually different
+        if old.price == new.price:
+            continue
+
+        tweet = '{} has changed from {} to {}\n{}\n{}'.format(new.name, old.price, new.price, new.link, tweet_footer)
+        notification_handle.post_twitter(tweet)
+        sleep(tweet_delay)
+
+if (__name__ == '__main__'): 
 
     #  Initiate and retrieve all products on the website
     retriever = create_product_retriever()
@@ -109,6 +143,9 @@ if (__name__ == '__main__'):
 
         #  Perform the notifications
         notify_admin_new_products(new_products, changed_products)
+
+        #  Post the results to twitter
+        tweet_results(new_products, changed_products)
 
         #  Add the new products to the database
         db_context.update_database(new_products)
