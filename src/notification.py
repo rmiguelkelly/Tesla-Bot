@@ -1,4 +1,5 @@
 
+import logging
 import smtplib
 import os
 from typing import Optional
@@ -43,15 +44,19 @@ class NotificationSystem:
         username = os.environ['SMTP_USERNAME']
         password = os.environ['SMTP_PASSWORD']
 
-        client = smtplib.SMTP(host, port, timeout=5)
-        client.starttls()
-        client.login(username, password)
+        try:
+            client = smtplib.SMTP(host, port, timeout=5)
+            client.starttls()
+            client.login(username, password)
 
-        message = "Subject: {}\r\n\r\n{}.".format(subject, body)
+            message = "Subject: {}\r\n\r\n{}.".format(subject, body)
 
-        client.sendmail('no-reply@ronanmiguelkelly.com', email, message)
+            client.sendmail('no-reply@ronanmiguelkelly.com', email, message)
 
-        client.close()
+            client.close()
+            
+        except Exception as err:
+            logging.error('Unable to send admin email ({})'.format(err))
 
         # Generic post tweet
     def post_twitter(self, tweet:str):
@@ -62,8 +67,11 @@ class NotificationSystem:
         
         try: 
             twitter_res = NotificationSystem.client.create_tweet(text=tweet)
-            print(twitter_res.data)
+            
+            tweet_dict = twitter_res.data
+            logging.info('Posted to twitter ({})'.format(tweet_dict))
+
         except Exception as err:
-            print("Error sending tweet: {}".format(err))
+            logging.error('Error sending tweet: {}'.format(err))
 
 

@@ -1,4 +1,5 @@
 
+import logging
 from typing import Optional
 from urllib.parse import urljoin
 import requests
@@ -26,11 +27,11 @@ class OnlineProductRetriever:
         response = requests.get(url, headers=http_headers)
 
         if response.status_code != 200:
-            print('Server Error: Unable to retrieve products from {} (error {})'.format(url, response.status_code))
+            logging.error('Server Error: Unable to retrieve products from {} (error {})'.format(url, response.status_code))
             return None
 
         if len(response.text) == 0:
-            print('Server Error: Empty response')
+            logging.error('Server Error: Empty response from {}'.format(url))
             return None
 
         bs = BeautifulSoup(response.text, features="html.parser")
@@ -38,7 +39,7 @@ class OnlineProductRetriever:
         img = bs.find_all("li", { 'class': 'product-tile__item' })
 
         if len(img) == 0:
-            print('Parse Error: Unabel to find tags')
+            logging.error('Parse Error: Unabel to find necessary tags from {}'.format(url))
             return False
 
         #  The last part of the url is the catagory

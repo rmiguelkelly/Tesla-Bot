@@ -2,3 +2,4 @@ __pycache__
 .env
 products.db
 .DS_Store
+logs
