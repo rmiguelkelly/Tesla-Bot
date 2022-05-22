@@ -1,8 +1,10 @@
 
 from datetime import date
+import logging
 from os import path, unlink
 import sqlite3
 from typing import Optional
+from xmlrpc.client import DateTime
 
 from product import Product
 
@@ -45,6 +47,7 @@ class ProductDatabase:
     
     #  Delete the database, resets everything
     def reset(self):
+        logging.info('Databse was reset on {}'.format(date.today()))
         unlink(self.database_name())
 
     #  Return a set of all products in the database

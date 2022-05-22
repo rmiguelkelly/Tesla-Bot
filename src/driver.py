@@ -1,15 +1,16 @@
+from logging.handlers import TimedRotatingFileHandler
 from time import sleep
+from xmlrpc.client import Boolean
 from api import OnlineProductRetriever
 from dbcontext import ProductDatabase
 from notification import NotificationSystem
 from product import Product
+import logging
+from os import environ, mkdir, path
 
 #  Load the .env for testing
 from dotenv import load_dotenv
 load_dotenv()
-
-#  Authenticate Twitter API
-NotificationSystem.authenticate_twitter_api()
 
 #  Create and return the online product retriever
 def create_product_retriever():
@@ -62,11 +63,13 @@ def notify_admin_new_products(new_products:set[Product], changed_products: set[(
     message += "\n"
     message += 'Thats All Folks!'
 
+    email_subject = '{} New Products Found and {} Products Changed'.format(len(new_products), len(changed_products))
+
     notify = NotificationSystem()
-    notify.post_admin_email('{} New Products Found and {} Products Changed'.format(len(new_products), len(changed_products)), message)
+    notify.post_admin_email(email_subject, message)
     
     # Log this instead
-    print(message)
+    logging.info(email_subject)
 
 # Send the results to twitter
 # This should be done syncronously with a small delay between each tweet
@@ -97,25 +100,88 @@ def tweet_results(new_products:set[Product], changed_products: set[((Product, Pr
         notification_handle.post_twitter(tweet)
         sleep(tweet_delay)
 
-if (__name__ == '__main__'): 
+def initialize_logger():
+
+    log_folder = 'logs/'
+
+    if not path.exists(log_folder):
+        mkdir(log_folder)
+
+    log_format = '%(asctime)s - %(levelname)s - %(message)s'
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+
+    handler = TimedRotatingFileHandler(filename='{}/applog'.format(log_folder), when='midnight', interval=1, backupCount=365)
+
+    # Log format to use
+    formatter = logging.Formatter(log_format)
+    handler.setFormatter(formatter)
+    
+    root_logger.addHandler(handler)
+
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+
+    formatter = logging.Formatter(log_format, datefmt='%m-%d %H:%M')
+    console.setFormatter(formatter)
+    root_logger.addHandler(console)
+
+def valid_env() -> bool:
+    env_var_keys = [
+        'ADMIN_EMAIL',
+
+        'SMTP_ENDPOINT',
+        'SMTP_PORT',
+        'SMTP_USERNAME',
+        'SMTP_PASSWORD',
+
+        'TWITTER_API_KEY',
+        'TWITTER_API_SECRET',
+        'TWITTER_ACCESS_TOKEN',
+        'TWITTER_ACCESS_SECRET',
+    ]
+
+    missing_key = False
+
+    for key in env_var_keys:
+        try:
+            _ = environ[key]
+        except:
+            logging.error('Missing \'{}\' enviromental variable'.format(key))
+            missing_key = True
+
+    return not missing_key
+
+if (__name__ == '__main__'):
+
+    #  Create the log folder and the logger
+    initialize_logger()
+
+    if not valid_env():
+        logging.critical('Application terminated because of missing enviroment variables')
+        exit()
+
+    #  Authenticate Twitter API
+    NotificationSystem.authenticate_twitter_api()
 
     #  Initiate and retrieve all products on the website
     retriever = create_product_retriever()
     website_products = retriever.retrieve_all()
-    print('Found {} products online'.format(len(website_products)))
+    logging.info('Found {} products online'.format(len(website_products)))
 
     #  If no products were found, an error may have occured
     if len(website_products) == 0:
         NotificationSystem().post_admin_email('Error', 'An error occured, take this L')
-        print('No products found, maybe an error happened?')
-        pass
+        logging.error('No products found, maybe an error happened?')
+        exit()
     
     #  The cached products from the initial seeding + updates
     db_context = ProductDatabase()
     
     #  No products, seed the database
     if not db_context.database_exists():
-        print('Database not found, creating and seeding database')
+        logging.info('Product database not found, creating and seeding database')
         db_context.seed(website_products)
     
     #  All the products from the database
@@ -152,3 +218,5 @@ if (__name__ == '__main__'):
 
         #  Update the changed products
         db_context.update_changed_products(changed_products)
+    else:
+        logging.info('No new products or changes found')
