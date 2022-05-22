@@ -3,3 +3,4 @@ __pycache__
 products.db
 .DS_Store
 logs
+*.pyc
