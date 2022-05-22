@@ -2,6 +2,7 @@
 from datetime import date
 from os import path, unlink
 import sqlite3
+from typing import Optional
 
 from product import Product
 
@@ -47,18 +48,18 @@ class ProductDatabase:
         unlink(self.database_name())
 
     #  Return a set of all products in the database
-    def all_products(self) -> set[Product]:
+    def all_products(self) -> dict[str, Product]:
 
         connection = sqlite3.connect(self.database_name())
         curser = connection.execute('SELECT * FROM products')
 
         records = curser.fetchall()
 
-        database_products = set[Product]()
+        database_products = dict[str, Product]()
 
         for (id, name, price, link, category, _) in records:
             db_product = Product(id, name, price, link, category)
-            database_products.add(db_product)
+            database_products[id] = db_product
 
         connection.close()
 
@@ -77,3 +78,16 @@ class ProductDatabase:
         conn.commit()
         conn.close()
 
+    #  Updates the database with products that have changed
+    def update_changed_products(self, changes:set[(Product, Product)]):
+
+        conn = sqlite3.connect(self.database_name())
+        
+        for diff in changes:
+            new = diff[1]
+            update_query = "UPDATE products SET name=?, price=?, link=?, category=?, last_updated=? WHERE id=?"
+            values = (new.name, new.price, new.link, new.category, date.today(), new.id)
+            conn.execute(update_query, values)
+            
+        conn.commit()
+        conn.close()

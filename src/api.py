@@ -22,7 +22,7 @@ class OnlineProductRetriever:
         response = requests.get(url)
 
         if response.status_code != 200:
-            print('Server Error: Unable to retrieve products from {}'.format(url))
+            print('Server Error: Unable to retrieve products from {} (error {})'.format(url, response.status_code))
             return None
 
         if len(response.text) == 0:

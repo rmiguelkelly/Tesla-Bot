@@ -10,5 +10,4 @@ class Product:
     category: str
 
     def __hash__(self) -> int:
-        return id.__hash__()
-
+        return self.id.__hash__()

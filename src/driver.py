@@ -22,22 +22,46 @@ def create_product_retriever():
 
     return retriever
 
-def notify_admin_new_products(products:set[Product]):
+def notify_admin_new_products(new_products:set[Product], changed_products: set[((Product, Product))]):
 
-    message = 'New Tesla Products Found\n\n'
+    message = 'New Tesla Products Found\n'
+    message += '-------------------------\n'
 
-    for product in products:
-        product_str = '{} - {}\n{}'.format(product.name, product.price, product.link)
+    index = 1
+    for product in new_products:
+        product_str = '{}: {} - {} ({})'.format(index, product.name, product.price, product.link)
         message += product_str
         message += '\n'
-        message += '-------------------------'
-        message += '\n'
+        index += 1
 
+    message += "\n\n"
+    message += "Changed Products\n"
+    message += '-------------------------'
+    message += "\n"
+
+    # Handle the changed procucts
+
+    index = 1
+    for diff in changed_products:
+        old = diff[0]
+        new = diff[1]
+
+        # If the names are not equal or the prices are equal, omit this change
+        if (old.name != new.name or old.price == new.price):
+            continue
+
+        message_diff = "{}: {} changed from {} to {} ({})".format(index, new.name, old.price, new.price, new.link)
+        message += message_diff
+        message += '\n'
+        index += 1
+
+    message += "\n"
     message += 'Thats All Folks!'
 
-    notify = NotificationSystem()
-    notify.post_admin_email('{} New Products Found'.format(len(products)), message)
+    # notify = NotificationSystem()
+    # notify.post_admin_email('{} New Products Found and {} Products Changed'.format(len(new_products), len(changed_products)), message)
     
+    print(message)
 
 if (__name__ == '__main__'):
 
@@ -48,7 +72,7 @@ if (__name__ == '__main__'):
 
     #  If no products were found, an error may have occured
     if len(website_products) == 0:
-        NotificationSystem().post_admin_email('Error', 'An error occured, thake this L')
+        NotificationSystem().post_admin_email('Error', 'An error occured, take this L')
         print('No products found, maybe an error happened?')
         pass
     
@@ -65,22 +89,29 @@ if (__name__ == '__main__'):
 
     new_products = set[Product]()
 
+    #  Set of the products that were changed (old, new)
+    changed_products = set[(Product, Product)]()
+
     #  All products from the website that are not in the database
     for product in website_products:
 
         #  If this product from the website is NOT in the database, it must be a new one
-        if product not in db_products:
+        exists_in = product.id in db_products
+        if not exists_in:
             new_products.add(product)
-
-    print("----- New Products -----")
-    for new_product in new_products:
-        print(new_product.name)
+        else:
+            #  If this product exists in the database but is not equal to the stored one
+            if db_products[product.id] != product:
+                changed_products.add((db_products[product.id], product))
 
     #  For any new products, notify the admin plus subscribers
-    if len(new_products) > 0:
+    if len(new_products) > 0 or len(changed_products) > 0:
 
         #  Perform the notifications
-        notify_admin_new_products(new_products)
+        notify_admin_new_products(new_products, changed_products)
 
         #  Add the new products to the database
         db_context.update_database(new_products)
+
+        #  Update the changed products
+        db_context.update_changed_products(changed_products)
