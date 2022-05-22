@@ -25,8 +25,7 @@ class NotificationSystem:
         client.login(username, password)
 
         message = """\
-        Subject: {}
-
+        Subject: {}\r\n
         {}.""".format(subject, body)
 
         client.sendmail('no-reply@ronanmiguelkelly.com', email, message)
